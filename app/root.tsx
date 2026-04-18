@@ -9,6 +9,12 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { useEffect, useState } from "react";
+import {
+  getCurrentUser,
+  signIn as puterSignIn,
+  signOut as puterSignOut,
+} from "../lib/puter.action";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -41,8 +47,98 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+const DEFAULT_AUTH_STATE: AuthState = {
+  isSignedIn: false,
+  userName: null,
+  userId: null,
+};
+
+type ThemeMode = "light" | "dark";
+const THEME_STORAGE_KEY = "archy_ai_theme";
+
 export default function App() {
-  return <Outlet />;
+  const [authState, setAuthState] = useState<AuthState>(DEFAULT_AUTH_STATE);
+  const [theme, setTheme] = useState<ThemeMode>("light");
+
+  const refreshAuth = async () => {
+    try {
+      const user = await getCurrentUser();
+
+      setAuthState({
+        isSignedIn: !!user,
+        userName: user?.username || null,
+        userId: user?.uuid || null,
+      });
+
+      return !!user;
+    } catch {
+      setAuthState(DEFAULT_AUTH_STATE);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    refreshAuth();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedTheme = window.localStorage.getItem(
+      THEME_STORAGE_KEY,
+    ) as ThemeMode | null;
+
+    if (storedTheme === "light" || storedTheme === "dark") {
+      setTheme(storedTheme);
+      return;
+    }
+
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
+
+    setTheme(prefersDark ? "dark" : "light");
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    root.classList.toggle("theme-dark", theme === "dark");
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
+  const signIn = async () => {
+    await puterSignIn();
+    return await refreshAuth();
+  };
+
+  const signOut = async () => {
+    puterSignOut();
+    return await refreshAuth();
+  };
+
+  return (
+    <main className="min-h-screen bg-background text-foreground relative z-10">
+      <Outlet
+        context={{
+          ...authState,
+          theme,
+          toggleTheme,
+          refreshAuth,
+          signIn,
+          signOut,
+        }}
+      />
+    </main>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
