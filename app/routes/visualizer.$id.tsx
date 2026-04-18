@@ -12,7 +12,8 @@ import {
 const VisualizerId = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userId, theme, toggleTheme } = useOutletContext<AuthContext>();
+  const { userId, theme, toggleTheme, notify } =
+    useOutletContext<AuthContext>();
 
   const hasInitialGenerated = useRef(false);
 
@@ -21,10 +22,17 @@ const VisualizerId = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const handleBack = () => navigate("/");
   const handleExport = () => {
-    if (!currentImage) return;
+    if (!currentImage) {
+      notify("No rendered image available to export yet.", "error");
+      setStatusMessage("No rendered image available to export yet.");
+      return;
+    }
+
+    setStatusMessage(null);
 
     const link = document.createElement("a");
     link.href = currentImage;
@@ -35,7 +43,10 @@ const VisualizerId = () => {
   };
 
   const runGeneration = async (item: DesignItem) => {
-    if (!id || !item.sourceImage) return;
+    if (!id || !item.sourceImage) {
+      notify("Missing project context for rendering.", "error");
+      return;
+    }
 
     try {
       setIsProcessing(true);
@@ -61,10 +72,32 @@ const VisualizerId = () => {
         if (saved) {
           setProject(saved);
           setCurrentImage(saved.renderedImage || result.renderedImage);
+          setStatusMessage(null);
+          notify("3D render completed.", "success", 2200);
+        } else {
+          notify(
+            "Render generated, but saving failed. You can still export the preview.",
+            "error",
+          );
+          setStatusMessage(
+            "Render generated, but saving the project failed. You can still export this preview.",
+          );
         }
+      } else {
+        notify("Render did not return an image. Please retry.", "error");
+        setStatusMessage(
+          "Render did not return an image. Please retry in a moment.",
+        );
       }
     } catch (error) {
       console.error("Generation failed: ", error);
+      notify(
+        "Failed to generate the 3D visualization. Please try again.",
+        "error",
+      );
+      setStatusMessage(
+        "Failed to generate the 3D visualization. Please try again.",
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -87,6 +120,17 @@ const VisualizerId = () => {
 
       setProject(fetchedProject);
       setCurrentImage(fetchedProject?.renderedImage || null);
+      if (!fetchedProject) {
+        notify(
+          "Could not load this project. It may not exist or access may be restricted.",
+          "error",
+        );
+        setStatusMessage(
+          "Could not load this project. It may not exist or you may not have access.",
+        );
+      } else {
+        setStatusMessage(null);
+      }
       setIsProjectLoading(false);
       hasInitialGenerated.current = false;
     };
@@ -149,6 +193,12 @@ const VisualizerId = () => {
       </nav>
 
       <section className="content">
+        {statusMessage && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {statusMessage}
+          </div>
+        )}
+
         <div className="panel">
           <div className="panel-header">
             <div className="panel-meta">
@@ -166,7 +216,14 @@ const VisualizerId = () => {
               >
                 <Download className="w-4 h-4 mr-2" /> Export
               </Button>
-              <Button size="sm" onClick={() => {}} className="share">
+              <Button
+                size="sm"
+                onClick={() => {
+                  notify("Sharing will be available soon.", "info", 2200);
+                  setStatusMessage("Sharing will be available soon.");
+                }}
+                className="share"
+              >
                 <Share2 className="w-4 h-4 mr-2" />
                 Share
               </Button>
@@ -184,6 +241,16 @@ const VisualizerId = () => {
                     alt="Original"
                     className="render-fallback"
                   />
+                )}
+
+                {!project?.sourceImage && !isProjectLoading && (
+                  <p className="text-sm text-zinc-500">
+                    No source image available.
+                  </p>
+                )}
+
+                {isProjectLoading && (
+                  <p className="text-sm text-zinc-500">Loading project...</p>
                 )}
               </div>
             )}

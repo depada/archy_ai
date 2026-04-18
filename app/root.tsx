@@ -9,7 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getCurrentUser,
   signIn as puterSignIn,
@@ -56,9 +56,17 @@ const DEFAULT_AUTH_STATE: AuthState = {
 type ThemeMode = "light" | "dark";
 const THEME_STORAGE_KEY = "archy_ai_theme";
 
+type ToastItem = {
+  id: number;
+  message: string;
+  type: "info" | "success" | "error";
+};
+
 export default function App() {
   const [authState, setAuthState] = useState<AuthState>(DEFAULT_AUTH_STATE);
   const [theme, setTheme] = useState<ThemeMode>("light");
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
 
   const refreshAuth = async () => {
     try {
@@ -115,6 +123,21 @@ export default function App() {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
+  const notify = (
+    message: string,
+    type: "info" | "success" | "error" = "info",
+    durationMs = 4000,
+  ) => {
+    const id = toastIdRef.current + 1;
+    toastIdRef.current = id;
+
+    setToasts((prev) => [...prev, { id, message, type }]);
+
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, durationMs);
+  };
+
   const signIn = async () => {
     await puterSignIn();
     return await refreshAuth();
@@ -132,11 +155,20 @@ export default function App() {
           ...authState,
           theme,
           toggleTheme,
+          notify,
           refreshAuth,
           signIn,
           signOut,
         }}
       />
+
+      <div className="toast-stack" aria-live="polite" aria-atomic="true">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast toast--${toast.type}`}>
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </main>
   );
 }

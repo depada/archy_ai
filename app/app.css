@@ -184,7 +184,7 @@
   }
 
   .auth-modal {
-    @apply absolute inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4;
+    @apply fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4;
 
     .panel {
       @apply bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center border border-zinc-200;
@@ -217,6 +217,26 @@
         }
       }
     }
+  }
+
+  .toast-stack {
+    @apply fixed right-4 top-20 z-70 flex max-w-sm flex-col gap-2;
+  }
+
+  .toast {
+    @apply rounded-md border px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-sm;
+  }
+
+  .toast--info {
+    @apply border-blue-200 bg-blue-50 text-blue-800;
+  }
+
+  .toast--success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-800;
+  }
+
+  .toast--error {
+    @apply border-red-200 bg-red-50 text-red-700;
   }
 
   .upload {
@@ -927,5 +947,23 @@ html.theme-dark {
   .theme-toggle:hover {
     background: #27272a;
     color: #fafafa;
+  }
+
+  .toast--info {
+    background: #172554;
+    border-color: #1d4ed8;
+    color: #dbeafe;
+  }
+
+  .toast--success {
+    background: #052e16;
+    border-color: #15803d;
+    color: #dcfce7;
+  }
+
+  .toast--error {
+    background: #450a0a;
+    border-color: #b91c1c;
+    color: #fee2e2;
   }
 }

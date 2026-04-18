@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router";
 import { CheckCircle2, ImageIcon, UploadIcon } from "lucide-react";
+import AuthRequiredModal from "./AuthRequiredModal";
 import {
   PROGRESS_INCREMENT,
   REDIRECT_DELAY_MS,
@@ -15,12 +16,11 @@ const Upload = ({ onComplete }: UploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { isSignedIn } = useOutletContext<AuthContext>();
+  const { isSignedIn, signIn, notify } = useOutletContext<AuthContext>();
 
   useEffect(() => {
     return () => {
@@ -32,31 +32,46 @@ const Upload = ({ onComplete }: UploadProps) => {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
-      if (errorTimeoutRef.current) {
-        clearTimeout(errorTimeoutRef.current);
-        errorTimeoutRef.current = null;
-      }
     };
   }, []);
 
-  const showError = useCallback((message: string) => {
-    setErrorMessage(message);
+  const showError = useCallback(
+    (message: string) => {
+      notify(message, "error");
+    },
+    [notify],
+  );
 
-    if (errorTimeoutRef.current) {
-      clearTimeout(errorTimeoutRef.current);
+  const promptSignIn = useCallback(() => {
+    setIsAuthModalOpen(true);
+    showError("Please sign in with Puter before uploading.");
+  }, [showError]);
+
+  const handleModalCancel = () => setIsAuthModalOpen(false);
+
+  const handleModalConfirm = async () => {
+    try {
+      const signedIn = await signIn();
+
+      if (!signedIn) {
+        showError("Sign in failed. Please try again.");
+        return;
+      }
+
+      setIsAuthModalOpen(false);
+      notify("Signed in successfully.", "success", 2200);
+    } catch {
+      showError("Sign in failed. Please try again.");
     }
-
-    errorTimeoutRef.current = setTimeout(() => {
-      setErrorMessage(null);
-      errorTimeoutRef.current = null;
-    }, 5000);
-  }, []);
+  };
 
   const processFile = useCallback(
     (file: File) => {
-      if (!isSignedIn) return;
+      if (!isSignedIn) {
+        promptSignIn();
+        return;
+      }
 
-      setErrorMessage(null);
       setFile(file);
       setProgress(0);
 
@@ -107,7 +122,7 @@ const Upload = ({ onComplete }: UploadProps) => {
       };
       reader.readAsDataURL(file);
     },
-    [isSignedIn, onComplete, showError],
+    [isSignedIn, onComplete, promptSignIn, showError],
   );
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -124,7 +139,10 @@ const Upload = ({ onComplete }: UploadProps) => {
     e.preventDefault();
     setIsDragging(false);
 
-    if (!isSignedIn) return;
+    if (!isSignedIn) {
+      promptSignIn();
+      return;
+    }
 
     const droppedFile = e.dataTransfer.files[0];
     const allowedTypes = ["image/jpeg", "image/png"];
@@ -136,12 +154,24 @@ const Upload = ({ onComplete }: UploadProps) => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isSignedIn) return;
+    if (!isSignedIn) {
+      e.currentTarget.value = "";
+      promptSignIn();
+      return;
+    }
 
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      processFile(selectedFile);
+    const allowedTypes = ["image/jpeg", "image/png"];
+
+    if (!selectedFile) return;
+
+    if (!allowedTypes.includes(selectedFile.type)) {
+      showError("Please upload a JPG or PNG image.");
+      e.currentTarget.value = "";
+      return;
     }
+
+    processFile(selectedFile);
   };
 
   return (
@@ -156,8 +186,7 @@ const Upload = ({ onComplete }: UploadProps) => {
           <input
             type="file"
             className="drop-input"
-            accept=".jpg,.jpeg,.png,.webp"
-            disabled={!isSignedIn}
+            accept=".jpg,.jpeg,.png"
             onChange={handleChange}
           />
 
@@ -197,11 +226,14 @@ const Upload = ({ onComplete }: UploadProps) => {
         </div>
       )}
 
-      {errorMessage && (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-          {errorMessage}
-        </div>
-      )}
+      <AuthRequiredModal
+        isOpen={isAuthModalOpen}
+        onConfirm={handleModalConfirm}
+        onCancel={handleModalCancel}
+        title="Sign in to upload"
+        description="Uploading floor plans requires a Puter account. Please sign in to continue."
+        confirmLabel="Sign In with Puter"
+      />
     </div>
   );
 };

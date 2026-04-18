@@ -2,7 +2,7 @@ import type { Route } from "./+types/home";
 import Navbar from "../../components/Navbar";
 import { ArrowRight, ArrowUpRight, Clock, Layers } from "lucide-react";
 import Upload from "../../components/Upload";
-import { useNavigate } from "react-router";
+import { useNavigate, useOutletContext } from "react-router";
 import { useEffect, useRef, useState } from "react";
 import { createProject, getProjects } from "../../lib/puter.action";
 
@@ -15,6 +15,7 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   const navigate = useNavigate();
+  const { notify } = useOutletContext<AuthContext>();
   const [projects, setProjects] = useState<DesignItem[]>([]);
   const isCreatingProjectRef = useRef(false);
 
@@ -40,6 +41,7 @@ export default function Home() {
 
       if (!saved) {
         console.error("Failed to create project");
+        notify("Project setup failed. Please try uploading again.", "error");
         return false;
       }
 

@@ -91,6 +91,11 @@ type AuthContext = {
   userId: string | null;
   theme: "light" | "dark";
   toggleTheme: () => void;
+  notify: (
+    message: string,
+    type?: "info" | "success" | "error",
+    durationMs?: number,
+  ) => void;
   refreshAuth: () => Promise<boolean>;
   signIn: () => Promise<boolean>;
   signOut: () => Promise<boolean>;
